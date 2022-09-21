@@ -16,7 +16,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver{
   final List<Transactions> _transactions = [
     Transactions(
       id: 't1',
@@ -33,6 +33,26 @@ class _MyHomePageState extends State<MyHomePage> {
   ];
 
   bool _showChart = false;
+
+  //if you are interested in the app lifecycle, then add observer...
+  @override
+  void initState() {
+    WidgetsBinding.instance.addObserver(this);
+    super.initState();
+  }
+
+  //Observer...
+  @override
+  void didChangeAppLifecycleState (AppLifecycleState state){
+
+  }
+
+  //To stop LifecycleState listener when state is not needed anymore...
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   List<Transactions> get _recentTransactions {
     return _transactions.where((tx) {
@@ -72,6 +92,80 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  List<Widget> _buildLandscapeContent(
+      Size size, PreferredSizeWidget appBar, var statusBar, transactionsList) {
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Show Chart',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          Switch.adaptive(
+            value: _showChart,
+            onChanged: (value) {
+              setState(() {
+                _showChart = value;
+              });
+            },
+            activeColor: Theme.of(context).primaryColor,
+          ),
+        ],
+      ),
+      _showChart
+          ? SizedBox(
+              height:
+                  (size.height - appBar.preferredSize.height - statusBar) * 0.7,
+              child: Chart(recentTransactions: _recentTransactions),
+            )
+          : transactionsList
+    ];
+  }
+
+  List<Widget> _buildPortraitContent(
+      Size size, PreferredSizeWidget appBar, var statusBar, transactionsList) {
+    return [
+      SizedBox(
+        height: (size.height - appBar.preferredSize.height - statusBar) * 0.3,
+        child: Chart(recentTransactions: _recentTransactions),
+      ),
+      transactionsList
+    ];
+  }
+
+  ObstructingPreferredSizeWidget _buildIOSAppBar() {
+    return CupertinoNavigationBar(
+      middle: Text(
+        widget.title,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => _showAddNewTransaction(context),
+            child: const Icon(CupertinoIcons.add),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAndroidAppBar() {
+    return AppBar(
+      title: Text(
+        widget.title,
+      ),
+      actions: [
+        IconButton(
+          onPressed: () => _showAddNewTransaction(context),
+          icon: const Icon(Icons.add_rounded),
+          tooltip: 'Add Expense',
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -81,32 +175,8 @@ class _MyHomePageState extends State<MyHomePage> {
     var statusBar = mediaQuery.padding.top;
 
     final PreferredSizeWidget appBar = Platform.isIOS
-        ? CupertinoNavigationBar(
-            middle: Text(
-              widget.title,
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () => _showAddNewTransaction(context),
-                  child: const Icon(CupertinoIcons.add),
-                ),
-              ],
-            ),
-          ) as ObstructingPreferredSizeWidget
-        : AppBar(
-            title: Text(
-              widget.title,
-            ),
-            actions: [
-              IconButton(
-                onPressed: () => _showAddNewTransaction(context),
-                icon: const Icon(Icons.add_rounded),
-                tooltip: 'Add Expense',
-              ),
-            ],
-          );
+        ? _buildIOSAppBar()
+        : _buildAndroidAppBar();
 
     final _isLanscapeMode = mediaQuery.orientation == Orientation.landscape;
 
@@ -123,42 +193,19 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           children: <Widget>[
             if (_isLanscapeMode)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Show Chart',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Switch.adaptive(
-                    value: _showChart,
-                    onChanged: (value) {
-                      setState(() {
-                        _showChart = value;
-                      });
-                    },
-                    activeColor: Theme.of(context).primaryColor,
-                  ),
-                ],
+              ..._buildLandscapeContent(
+                size,
+                appBar,
+                statusBar,
+                transactionsList,
               ),
-            if (_isLanscapeMode)
-              _showChart
-                  ? SizedBox(
-                      height: (size.height -
-                              appBar.preferredSize.height -
-                              statusBar) *
-                          0.7,
-                      child: Chart(recentTransactions: _recentTransactions),
-                    )
-                  : transactionsList,
             if (!_isLanscapeMode)
-              SizedBox(
-                height:
-                    (size.height - appBar.preferredSize.height - statusBar) *
-                        0.3,
-                child: Chart(recentTransactions: _recentTransactions),
+              ..._buildPortraitContent(
+                size,
+                appBar,
+                statusBar,
+                transactionsList,
               ),
-            if (!_isLanscapeMode) transactionsList,
           ],
         ),
       ),
